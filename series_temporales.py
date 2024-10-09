@@ -1,72 +1,75 @@
 import pandas as pd
-from numpy import linalg as LA
-import seaborn as sns
+import numpy as np
 import matplotlib.pyplot as plt
+
+ciudad_1 = "Montvideo"
+ciudad_2 = "Montvideo"
 
 # Cargar el dataset
 file_path = 'city_temperature.csv'
-df = pd.read_csv(file_path)
+df = pd.read_csv(file_path, dtype={'Region': str, 'Country': str, 'State': str, 'City': str, 'Month': int, 'Day': int, 'Year': int, 'AvgTemperature': float})
 
-# Convertir la temperatura de Fahrenheit a Celsius
-df['AvgTemperature_Celsius'] = (df['AvgTemperature'] - 32) * 5/9
+# Filtrar datos por ciudad
+def filtrar_ciudad_por_año(df, ciudad, año):
+    datos_ciudad = df[(df['City'] == ciudad) & (df['Year'] == año)].copy()
+    datos_ciudad['Fecha'] = pd.to_datetime(datos_ciudad[['Year', 'Month', 'Day']])
+    return datos_ciudad[['Fecha', 'AvgTemperature']]
 
-# Función para calcular la similaridad entre las tasas de cambio de dos ciudades
-def calcular_similaridad(df_ciudad1, df_ciudad2):
-    # Asegurarse de que las dos series tengan las mismas fechas
-    merged_df = pd.merge(df_ciudad1[['AvgTemperature_Celsius']], df_ciudad2[['AvgTemperature_Celsius']], 
-                         left_index=True, right_index=True, suffixes=('_ciudad1', '_ciudad2')).dropna()
+# Calcular tasas de variación Δx/Δt
+def tasa_cambio(x, t):
+    dif_t = np.diff(t.astype('int64') // 1e9)  # Convertir tiempo a segundos y calcular diferencias
+    dif_t[dif_t == 0] = np.nan  # Evitar divisiones por cero
+    return np.diff(x) / dif_t  # Retornar tasa de cambio
 
-    # Calcular la distancia euclidiana entre las tasas de cambio
-    distancia = LA.norm(merged_df['AvgTemperature_Celsius_ciudad1'] - merged_df['AvgTemperature_Celsius_ciudad2'])
+# Métrica de similaridad
+epsilon = 1e-10
+def similaridad(delta_x_i, delta_x_j):
+    valid_idx = ~np.isnan(delta_x_i) & ~np.isnan(delta_x_j)
+    delta_x_i = delta_x_i[valid_idx]
+    delta_x_j = delta_x_j[valid_idx]
     
-    # Definir la similaridad como inversa de la distancia
-    similaridad = 1 / (1 + distancia)
+    if len(delta_x_i) == 0:  # Si no hay suficientes datos válidos, retornar NaN
+        return np.nan
     
-    return similaridad
-# Filtrar una ciudad en particular, por ejemplo, 'Buenos Aires'
-df_paris = df[df['City'] == 'Buenos Aires']
+    n = len(delta_x_i)
+    denominador = np.abs(delta_x_i) + np.abs(delta_x_j) + epsilon
+    similitud = 1 - np.sum(np.abs(delta_x_i - delta_x_j) / denominador) / n
+    
+    return similitud
 
-# Calcular la tasa de variación de temperatura usando diferencias finitas
-df_paris['Temp_Change'] = df_paris['AvgTemperature_Celsius'].diff() / df_paris.index.to_series().diff()
+# Lista para almacenar los resultados de similaridad por año
+años = range(1995, 2021)
+similaridades = []
 
-# Filtrar otra ciudad, por ejemplo 'New York'
-df_ny = df[df['City'] == 'New York']
+# Calcular similaridad año por año
+for año in años:
+    datos_ciudad_1 = filtrar_ciudad_por_año(df, ciudad_1, año)
+    datos_ciudad_2 = filtrar_ciudad_por_año(df, ciudad_2, año)
+    
+    # Encontrar las fechas comunes entre ambas ciudades
+    fechas_comun = set(datos_ciudad_1['Fecha']).intersection(set(datos_ciudad_2['Fecha']))
+    datos_ciudad_1 = datos_ciudad_1[datos_ciudad_1['Fecha'].isin(fechas_comun)].copy()
+    datos_ciudad_2 = datos_ciudad_2[datos_ciudad_2['Fecha'].isin(fechas_comun)].copy()
+    
+    # Extraer las series de tiempo y fechas
+    x_i = datos_ciudad_1['AvgTemperature'].values
+    x_j = datos_ciudad_2['AvgTemperature'].values
+    t = datos_ciudad_1['Fecha'].values  # Usamos las fechas como base de tiempo
+    
+    # Calcular las tasas de cambio para ambas ciudades
+    delta_x_i = tasa_cambio(x_i, t)
+    delta_x_j = tasa_cambio(x_j, t)
+    
+    # Calcular la similaridad entre las dos series temporales para el año
+    S_ij = similaridad(delta_x_i, delta_x_j)
+    similaridades.append(S_ij)
 
-# Calcular la tasa de variación de temperatura usando diferencias finitas
-df_ny['Temp_Change'] = df_ny['AvgTemperature_Celsius'].diff() / df_ny.index.to_series().diff()
-
-# Calcular la similaridad entre Paris y New York
-similaridad_paris_ny = calcular_similaridad(df_paris, df_ny)
-print(f"Similaridad entre Buenos Aires y New York: {similaridad_paris_ny}")
-
-# Graficar la tasa de cambio de temperatura para Paris y New York
+# Graficar la evolución de la similaridad entre las dos ciudades de 1995 a 2020
 plt.figure(figsize=(10, 6))
-plt.plot(df_paris.index, df_paris['Temp_Change'], label='Buenos Aires')
-plt.plot(df_ny.index, df_ny['Temp_Change'], label='New York')
-plt.title('Tasa de Cambio de Temperatura - Paris vs New York')
-plt.xlabel('Fecha')
-plt.ylabel('Tasa de Cambio (°C/día)')
-plt.legend()
-plt.show()
-
-# Filtrar algunas ciudades, por ejemplo, 'Paris', 'New York', 'Moscow'
-ciudades = ['Buenos Aires', 'Paris', 'Moscow']
-similaridades = pd.DataFrame(index=ciudades, columns=ciudades)
-
-# Calcular similaridades entre cada par de ciudades
-for city1 in ciudades:
-    df_city1 = df[df['City'] == city1]
-    df_city1['Temp_Change'] = df_city1['AvgTemperature_Celsius'].diff() / df_city1.index.to_series().diff()
-    
-    for city2 in ciudades:
-        df_city2 = df[df['City'] == city2]
-        df_city2['Temp_Change'] = df_city2['AvgTemperature_Celsius'].diff() / df_city2.index.to_series().diff()
-        
-        # Calcular similaridad
-        similaridades.loc[city1, city2] = calcular_similaridad(df_city1, df_city2)
-
-# Visualizar el heatmap
-plt.figure(figsize=(8, 6))
-sns.heatmap(similaridades.astype(float), annot=True, cmap='coolwarm', cbar=True)
-plt.title('Heatmap de Similaridad entre Ciudades')
+plt.plot(años, similaridades, marker='o', linestyle='-', color='b')
+plt.title(f"Evolución de la Similaridad entre {ciudad_1} y {ciudad_2} (1995-2020)")
+plt.xlabel("Año")
+plt.ylabel("Similaridad")
+plt.ylim(0, 1)
+plt.grid(True)
 plt.show()
