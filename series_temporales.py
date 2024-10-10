@@ -2,8 +2,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-ciudad_1 = "Montvideo"
-ciudad_2 = "Montvideo"
+ciudad_1 = "Calgary"
+ciudad_2 = "Calgary"
 
 # Cargar el dataset
 file_path = 'city_temperature.csv'
