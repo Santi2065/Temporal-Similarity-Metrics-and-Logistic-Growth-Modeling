@@ -1,3 +1,4 @@
+#%%
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -62,12 +63,10 @@ for idx, params in enumerate(combinations):
             N_rk4_allee[i] = rk4_step(allee_effect_model, t, N_rk4_allee[i - 1], h, r, K, A)
 
         # Graficar las soluciones para el modelo logístico
-        ax_logistic.plot(t_values, N_euler_logistic, label=f'Euler (Logístico) N0={N0}, r={r}, K={K}, h={h}', linestyle='--')
         ax_logistic.plot(t_values, N_rk4_logistic, label=f'RK4 (Logístico) N0={N0}, r={r}, K={K}, h={h}', linestyle='-')
 
-        # Graficar las soluciones para el modelo con efecto Allee
-        ax_allee.plot(t_values, N_euler_allee, label=f'Euler (Allee) N0={N0}, r={r}, K={K}, A={A}, h={h}', linestyle='--')
-        ax_allee.plot(t_values, N_rk4_allee, label=f'RK4 (Allee) N0={N0}, r={r}, K={K}, A={A}, h={h}', linestyle='-')
+        # Graficar las soluciones para el modelo con efecto Alleen
+        ax_allee.plot(t_values, N_rk4_allee, label=f'RK4 (Alleen) N0={N0}, r={r}, K={K}, A={A}, h={h}', linestyle='-')
 
 # Configurar el gráfico del modelo logístico
 ax_logistic.set_xlabel('Tiempo t')
@@ -75,14 +74,16 @@ ax_logistic.set_ylabel('Población N(t)')
 ax_logistic.set_title('Modelo Logístico')
 ax_logistic.legend()
 
-# Configurar el gráfico del modelo con efecto Allee
+# Configurar el gráfico del modelo con efecto Alleen
 ax_allee.set_xlabel('Tiempo t')
 ax_allee.set_ylabel('Población N(t)')
-ax_allee.set_title('Modelo con Efecto Allee')
-ax_allee.legend()
+ax_allee.set_title('Modelo con Efecto Alleen')
+ax_allee.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
 plt.show()
 
 # Cerrar las figuras después de mostrarlas
 plt.close(fig_logistic)
 plt.close(fig_allee)
+
+# %%
